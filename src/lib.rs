@@ -1,79 +1,45 @@
 pub mod baidu;
+pub mod error;
 pub mod qq;
 pub mod wechat_open;
 pub mod weibo;
 
+use crate::error::Result;
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+use derive_builder::Builder;
+
+#[derive(Builder)]
+pub struct AuthConfig {
+    client_id: String,
+    client_secret: String,
+    redirect_uri: String,
+}
 
 pub trait AuthUrlProvider {
-    /// 返回带state参数的授权url，授权回调时会带上这个state
+    type AuthRequest;
+    type AuthCallback;
+    type AuthToken;
+    /// 返回带redirect_ui和state参数的授权url，授权回调时会带上这个state。
+    /// 用户端重定向至该URL地址进行认证授权
     ///
-    /// - param state  验证授权流程的参数，可以防止csrf
-    /// - return 返回授权地址
-    fn authorize<S: Into<String>>(state: S) -> String;
+    fn authorize(request: Self::AuthRequest) -> Result<String>;
 
-    ///
     /// 返回获取accessToken的url
     ///
-    /// - param code 授权码
-    /// - return 返回获取accessToken的url
-    ///
-    fn access_token_url<S: Into<String>>(code: S) -> String;
+    fn access_token_url(callback: Self::AuthCallback) -> Result<String>;
 
     /// 返回获取userInfo的url
     ///
-    /// - param authToken 用户授权后的token
-    /// - return 返回获取userInfo的url
-    ///
-    fn user_info_url<S: Into<String>>(auth_token: S) -> String;
+    fn user_info_url(token: Self::AuthToken) -> Result<String>;
 }
-
-pub trait AuthCallback {}
-
-pub trait AuthToken {}
-
-pub trait AuthUser {}
 
 #[async_trait]
-pub trait AuthAction<C, T, U>
-where
-    C: AuthCallback,
-    T: AuthToken,
-    U: AuthUser,
-{
-    async fn get_access_token(callback: C) -> T;
+pub trait AuthAction<C, T, U> {
+    type AuthCallback;
+    type AuthToken;
+    type AuthUser;
 
-    async fn get_user_info(token: T) -> U;
-}
+    async fn get_access_token(callback: Self::AuthCallback) -> Self::AuthToken;
 
-#[derive(Debug, Serialize, Deserialize)]
-pub enum AuthRenderRequest {
-    QQ(qq::AuthRequest),
-    Baidu(baidu::AuthRequest),
-    Weibo(weibo::AuthRequest),
-    WechatOpen(wechat_open::AuthRequest),
-}
-
-// #[derive(Debug, Serialize, Deserialize)]
-// pub enum AuthCallback {
-//     QQ(qq::AuthCallback),
-//     Baidu(baidu::AuthCallback),
-//     Weibo(weibo::AuthCallback),
-//     WechatOpen(wechat_open::AuthCallback),
-// }
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum GetTokenRequest {
-    QQ(qq::GetTokenRequest),
-    Baidu(baidu::GetTokenRequest),
-    Weibo(weibo::GetTokenRequest),
-    WechatOpen(wechat_open::GetTokenRequest),
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub enum RefreshTokenRequest {
-    QQ(qq::RefreshTokenRequest),
-    Baidu(baidu::RefreshTokenRequest),
-    WechatOpen(wechat_open::RefreshTokenRequest),
+    async fn get_user_info(token: Self::AuthToken) -> Self::AuthUser;
 }
