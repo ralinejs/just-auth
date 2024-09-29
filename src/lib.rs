@@ -1,14 +1,26 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+pub mod baidu;
+pub mod qq;
+pub mod wechat_open;
+pub mod weibo;
+
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum AuthRequest {
+    QQ(qq::AuthRequest),
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+#[derive(Debug, Serialize, Deserialize)]
+pub enum AuthCallback {
+    QQ(qq::AuthCallback),
+}
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+#[derive(Debug, Serialize, Deserialize)]
+pub enum GetTokenRequest {
+    QQ(qq::GetTokenRequest),
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub enum RefreshTokenRequest {
+    QQ(qq::RefreshTokenRequest),
 }
