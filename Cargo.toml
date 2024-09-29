@@ -7,3 +7,4 @@ edition = "2021"
 serde = { version = "1.0", features = ["derive"] }
 serde_urlencoded = "0.7"
 serde_with = "3.9"
+async-trait = "0.1"
