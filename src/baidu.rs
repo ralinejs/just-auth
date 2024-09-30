@@ -10,8 +10,8 @@ pub struct AuthorizationServer {
 
 impl AuthUrlProvider for AuthorizationServer {
     type AuthRequest = AuthRequest;
-    type AuthCallback = AuthCallback;
-    type AuthToken = AccessToken;
+    type TokenRequest = AuthCallback;
+    type UserInfoRequest = AccessToken;
 
     fn authorize(request: AuthRequest) -> Result<String> {
         let query = serde_urlencoded::to_string(request)?;

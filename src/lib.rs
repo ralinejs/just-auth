@@ -17,8 +17,8 @@ pub struct AuthConfig {
 
 pub trait AuthUrlProvider {
     type AuthRequest;
-    type AuthCallback;
-    type AuthToken;
+    type TokenRequest;
+    type UserInfoRequest;
     /// 返回带redirect_ui和state参数的授权url，授权回调时会带上这个state。
     /// 用户端重定向至该URL地址进行认证授权
     ///
@@ -26,11 +26,11 @@ pub trait AuthUrlProvider {
 
     /// 返回获取accessToken的url
     ///
-    fn access_token_url(callback: Self::AuthCallback) -> Result<String>;
+    fn access_token_url(callback: Self::TokenRequest) -> Result<String>;
 
     /// 返回获取userInfo的url
     ///
-    fn user_info_url(token: Self::AuthToken) -> Result<String>;
+    fn user_info_url(token: Self::UserInfoRequest) -> Result<String>;
 }
 
 #[async_trait]
