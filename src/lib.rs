@@ -22,15 +22,15 @@ pub trait AuthUrlProvider {
     /// 返回带redirect_ui和state参数的授权url，授权回调时会带上这个state。
     /// 用户端重定向至该URL地址进行认证授权
     ///
-    fn authorize(request: Self::AuthRequest) -> Result<String>;
+    fn authorize(auth_request: Self::AuthRequest) -> Result<String>;
 
     /// 返回获取accessToken的url
     ///
-    fn access_token_url(callback: Self::TokenRequest) -> Result<String>;
+    fn access_token_url(token_request: Self::TokenRequest) -> Result<String>;
 
     /// 返回获取userInfo的url
     ///
-    fn user_info_url(token: Self::UserInfoRequest) -> Result<String>;
+    fn user_info_url(user_request: Self::UserInfoRequest) -> Result<String>;
 }
 
 #[async_trait]

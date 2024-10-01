@@ -13,22 +13,22 @@ impl AuthUrlProvider for AuthorizationServer {
     type TokenRequest = GetTokenRequest;
     type UserInfoRequest = GetUserInfoRequest;
 
-    fn authorize(request: AuthRequest) -> Result<String> {
+    fn authorize(request: Self::AuthRequest) -> Result<String> {
         let query = serde_urlencoded::to_string(request)?;
         Ok(format!(
             "https://openapi.baidu.com/oauth/2.0/authorize?response_type=CODE&{query}"
         ))
     }
 
-    fn access_token_url(callback: GetTokenRequest) -> Result<String> {
-        let query = serde_urlencoded::to_string(callback)?;
+    fn access_token_url(request: Self::TokenRequest) -> Result<String> {
+        let query = serde_urlencoded::to_string(request)?;
         Ok(format!(
             "https://openapi.baidu.com/oauth/2.0/token?grant_type=authorization_code&{query}"
         ))
     }
 
-    fn user_info_url(token: GetUserInfoRequest) -> Result<String> {
-        let query = serde_urlencoded::to_string(token)?;
+    fn user_info_url(request: Self::UserInfoRequest) -> Result<String> {
+        let query = serde_urlencoded::to_string(request)?;
         Ok(format!(
             "https://openapi.baidu.com/rest/2.0/passport/users/getInfo?{query}"
         ))
