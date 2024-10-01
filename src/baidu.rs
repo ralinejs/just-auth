@@ -10,8 +10,8 @@ pub struct AuthorizationServer {
 
 impl AuthUrlProvider for AuthorizationServer {
     type AuthRequest = AuthRequest;
-    type TokenRequest = AuthCallback;
-    type UserInfoRequest = AccessToken;
+    type TokenRequest = GetTokenRequest;
+    type UserInfoRequest = GetUserInfoRequest;
 
     fn authorize(request: AuthRequest) -> Result<String> {
         let query = serde_urlencoded::to_string(request)?;
@@ -20,14 +20,14 @@ impl AuthUrlProvider for AuthorizationServer {
         ))
     }
 
-    fn access_token_url(callback: AuthCallback) -> Result<String> {
+    fn access_token_url(callback: GetTokenRequest) -> Result<String> {
         let query = serde_urlencoded::to_string(callback)?;
         Ok(format!(
             "https://openapi.baidu.com/oauth/2.0/token?grant_type=authorization_code&{query}"
         ))
     }
 
-    fn user_info_url(token: AccessToken) -> Result<String> {
+    fn user_info_url(token: GetUserInfoRequest) -> Result<String> {
         let query = serde_urlencoded::to_string(token)?;
         Ok(format!(
             "https://openapi.baidu.com/rest/2.0/passport/users/getInfo?{query}"
@@ -36,7 +36,7 @@ impl AuthUrlProvider for AuthorizationServer {
 }
 
 #[serde_as]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct AuthRequest {
     client_id: String,
     redirect_uri: String,
@@ -44,7 +44,23 @@ pub struct AuthRequest {
     scope: Vec<String>,
     state: Option<String>,
     display: Option<DisplayStyle>,
-    // other
+    force_login: Option<i8>,
+    confirm_login: Option<i8>,
+    login_type: Option<String>,
+    qrext_clientid: Option<String>,
+    bgurl: Option<String>,
+    #[serde(rename = "qrcodeW")]
+    qrcode_width: Option<u32>,
+    #[serde(rename = "qrcodeH")]
+    qrcode_height: Option<u32>,
+    qrcode: Option<i8>,
+    qrloginfrom: Option<String>,
+    #[serde(rename = "userReg")]
+    user_reg: Option<i8>,
+    #[serde(rename = "appTip")]
+    app_tip: Option<String>,
+    #[serde(rename = "appName")]
+    app_name: Option<String>,
 }
 
 /// https://openauth.baidu.com/doc/appendix.html#_2-display参数说明
@@ -65,21 +81,23 @@ pub struct AuthCallback {
     state: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize)]
 pub struct GetTokenRequest {
+    grant_type: String,
     client_id: String,
     client_secret: String,
     code: String,
     redirect_uri: String,
 }
 
-#[derive(Debug, Serialize)]
-pub struct AccessToken {
-    grant_type: String,
-    client_id: String,
-    client_secret: String,
-    code: String,
-    redirect_uri: String,
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TokenResponse {
+    pub access_token: String,
+    pub expires_in: i64,
+    pub refresh_token: String,
+    pub scope: String,
+    pub session_key: String,
+    pub session_secret: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -88,4 +106,27 @@ pub struct RefreshTokenRequest {
     client_id: String,
     client_secret: String,
     refresh_token: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct GetUserInfoRequest {
+    access_token: String,
+    get_unionid: Option<i8>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UserInfoResponse {
+    pub openid: String,
+    pub unionid: String,
+    pub userid: Option<u32>,
+    pub securemobile: Option<u32>,
+    pub username: Option<String>,
+    pub portrait: Option<String>,
+    pub userdetail: Option<String>,
+    pub birthday: Option<String>,
+    pub marriage: Option<String>,
+    pub sex: Option<String>,
+    pub blood: Option<String>,
+    pub is_bind_mobile: Option<String>,
+    pub is_realname: Option<String>,
 }
