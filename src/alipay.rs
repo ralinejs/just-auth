@@ -14,7 +14,7 @@ impl AuthUrlProvider for AuthorizationServer {
 
     type UserInfoRequest = GetUserInfoRequest;
 
-    fn authorize(request: Self::AuthRequest) -> crate::error::Result<String> {
+    fn authorize_url(request: Self::AuthRequest) -> crate::error::Result<String> {
         let query = serde_urlencoded::to_string(request)?;
         Ok(format!(
             "https://openauth.alipay.com/oauth2/publicAppAuthorize.htm?app_id=商户的APPID&scope=auth_user&redirect_uri=ENCODED_URL&state=init"

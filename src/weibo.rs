@@ -13,7 +13,7 @@ impl AuthUrlProvider for AuthorizationServer {
 
     type UserInfoRequest = GetUserInfoRequest;
 
-    fn authorize(request: Self::AuthRequest) -> crate::error::Result<String> {
+    fn authorize_url(request: Self::AuthRequest) -> crate::error::Result<String> {
         let query = serde_urlencoded::to_string(request)?;
         Ok(format!(
             "https://api.weibo.com/oauth2/authorize?response_type=code&{query}"

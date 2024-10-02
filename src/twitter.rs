@@ -18,7 +18,7 @@ impl AuthUrlProvider for AuthorizationServer {
     type TokenRequest = GetTokenRequest;
     type UserInfoRequest = GetUserInfoRequest;
 
-    fn authorize(request: Self::AuthRequest) -> Result<String> {
+    fn authorize_url(request: Self::AuthRequest) -> Result<String> {
         let query = serde_urlencoded::to_string(request)?;
         Ok(format!(
             "https://twitter.com/i/oauth2/authorize?response_type=code&{query}"

@@ -1,6 +1,7 @@
 //! 微信开放平台
 //! https://developers.weixin.qq.com/doc/oplatform/Website_App/WeChat_Login/Wechat_Login.html
-use crate::{AuthConfig, AuthUrlProvider};
+use crate::{error::Result, AuthAction, AuthConfig, AuthUrlProvider};
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::CommaSeparator, serde_as, StringWithSeparator};
 
@@ -15,30 +16,84 @@ impl AuthUrlProvider for AuthorizationServer {
 
     type UserInfoRequest = GetUserInfoRequest;
 
-    fn authorize(request: Self::AuthRequest) -> crate::error::Result<String> {
+    fn authorize_url(request: Self::AuthRequest) -> Result<String> {
         let query = serde_urlencoded::to_string(request)?;
         Ok(format!(
             "https://open.weixin.qq.com/connect/qrconnect?response_type=code&{query}"
         ))
     }
 
-    fn access_token_url(request: Self::TokenRequest) -> crate::error::Result<String> {
+    fn access_token_url(request: Self::TokenRequest) -> Result<String> {
         let query = serde_urlencoded::to_string(request)?;
         Ok(format!(
             "https://api.weixin.qq.com/sns/oauth2/access_token?grant_type=authorization_code&{query}"
         ))
     }
 
-    fn user_info_url(request: Self::UserInfoRequest) -> crate::error::Result<String> {
+    fn user_info_url(request: Self::UserInfoRequest) -> Result<String> {
         let query = serde_urlencoded::to_string(request)?;
         Ok(format!("https://api.weixin.qq.com/sns/userinfo?{query}"))
     }
 }
 
+#[async_trait]
+impl AuthAction for AuthorizationServer {
+    type AuthCallback = AuthCallback;
+    type AuthToken = TokenResponse;
+    type AuthUser = GetUserInfoRequest;
+
+    async fn authorize<S: Into<String> + Send>(&self, state: S) -> Result<String> {
+        let AuthConfig {
+            client_id,
+            redirect_uri,
+            scope,
+            ..
+        } = &self.config;
+        Self::authorize_url(AuthRequest {
+            appid: client_id.to_string(),
+            redirect_uri: redirect_uri.to_string(),
+            state: Some(state.into()),
+            scope: scope
+                .clone()
+                .or_else(|| {
+                    Some(vec![
+                        "snsapi_base".into(),
+                        "snsapi_login".into(),
+                        "snsapi_userinfo".into(),
+                    ])
+                })
+                .expect("scope is empty"),
+            ..Default::default()
+        })
+    }
+
+    async fn get_access_token(&self, callback: Self::AuthCallback) -> Result<Self::AuthToken> {
+        let AuthConfig {
+            client_id,
+            client_secret,
+            ..
+        } = &self.config;
+        let access_token_url = Self::access_token_url(GetTokenRequest {
+            appid: client_id.to_string(),
+            secret: client_secret.clone().expect("client_secret is empty"),
+            code: callback.code,
+        })?;
+        Ok(reqwest::get(access_token_url).await?.json().await?)
+    }
+
+    async fn get_user_info(&self, token: Self::AuthToken) -> Result<Self::AuthUser> {
+        let user_info_url = Self::user_info_url(GetUserInfoRequest {
+            openid: token.unionid,
+            access_token: token.access_token,
+            ..Default::default()
+        })?;
+        Ok(reqwest::get(user_info_url).await?.json().await?)
+    }
+}
+
 #[serde_as]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct AuthRequest {
-    response_type: String,
     appid: String,
     redirect_uri: String,
     #[serde_as(as = "StringWithSeparator::<CommaSeparator, String>")]
@@ -62,7 +117,6 @@ pub struct AuthCallback {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GetTokenRequest {
-    grant_type: String,
     appid: String,
     secret: String,
     code: String,
@@ -85,7 +139,7 @@ pub struct TokenResponse {
     pub unionid: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct GetUserInfoRequest {
     access_token: String,
     openid: String,

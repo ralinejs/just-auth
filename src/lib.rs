@@ -4,6 +4,7 @@ pub mod error;
 pub mod github;
 pub mod qq;
 pub mod twitter;
+mod utils;
 pub mod wechat_open;
 pub mod weibo;
 
@@ -14,8 +15,9 @@ use derive_builder::Builder;
 #[derive(Builder)]
 pub struct AuthConfig {
     client_id: String,
-    client_secret: String,
+    client_secret: Option<String>,
     redirect_uri: String,
+    scope: Option<Vec<String>>,
 }
 
 pub trait AuthUrlProvider {
@@ -25,7 +27,7 @@ pub trait AuthUrlProvider {
     /// 返回带redirect_ui和state参数的授权url，授权回调时会带上这个state。
     /// 用户端重定向至该URL地址进行认证授权
     ///
-    fn authorize(request: Self::AuthRequest) -> Result<String>;
+    fn authorize_url(request: Self::AuthRequest) -> Result<String>;
 
     /// 返回获取accessToken的url
     ///
@@ -37,12 +39,19 @@ pub trait AuthUrlProvider {
 }
 
 #[async_trait]
-pub trait AuthAction<C, T, U> {
-    type AuthCallback;
-    type AuthToken;
+pub trait AuthAction {
+    type AuthCallback: Send;
+    type AuthToken: Send;
     type AuthUser;
 
-    async fn get_access_token(callback: Self::AuthCallback) -> Self::AuthToken;
+    async fn authorize<S: Into<String> + Send>(&self, state: S) -> Result<String>;
 
-    async fn get_user_info(token: Self::AuthToken) -> Self::AuthUser;
+    async fn login(&self, callback: Self::AuthCallback) -> Result<Self::AuthUser> {
+        let token = self.get_access_token(callback).await?;
+        self.get_user_info(token).await
+    }
+
+    async fn get_access_token(&self, callback: Self::AuthCallback) -> Result<Self::AuthToken>;
+
+    async fn get_user_info(&self, token: Self::AuthToken) -> Result<Self::AuthUser>;
 }

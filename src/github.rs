@@ -13,7 +13,7 @@ impl AuthUrlProvider for AuthorizationServer {
     type TokenRequest = GetTokenRequest;
     type UserInfoRequest = GetUserInfoRequest;
 
-    fn authorize(request: Self::AuthRequest) -> Result<String> {
+    fn authorize_url(request: Self::AuthRequest) -> Result<String> {
         let query = serde_urlencoded::to_string(request)?;
         Ok(format!("https://github.com/login/oauth/authorize?{query}"))
     }
