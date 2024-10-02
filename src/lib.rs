@@ -1,9 +1,11 @@
+pub mod alipay;
 pub mod baidu;
 pub mod error;
+pub mod github;
 pub mod qq;
+pub mod twitter;
 pub mod wechat_open;
 pub mod weibo;
-pub mod alipay;
 
 use crate::error::Result;
 use async_trait::async_trait;
