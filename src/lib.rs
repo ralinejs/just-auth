@@ -1,4 +1,3 @@
-pub mod alipay;
 pub mod baidu;
 pub mod error;
 pub mod github;
