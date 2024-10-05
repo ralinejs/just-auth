@@ -19,4 +19,4 @@ jobs:
       - name: Run tests
         run: cargo test
       - name: Run Publish
-        run: cargo publish --publish-as-is --token=${{secrets.CARGO_TOKEN}}
+        run: cargo publish --token=${{secrets.CARGO_TOKEN}}
