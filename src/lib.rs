@@ -1,11 +1,13 @@
 pub mod baidu;
 pub mod error;
+pub mod facebook;
 pub mod github;
 pub mod qq;
 pub mod twitter;
-mod utils;
 pub mod wechat_open;
 pub mod weibo;
+
+mod utils;
 
 use crate::error::Result;
 use async_trait::async_trait;
