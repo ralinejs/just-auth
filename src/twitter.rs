@@ -2,7 +2,8 @@
 //! https://developer.x.com/en/docs/authentication/oauth-2-0/user-access-token
 //! https://developer.x.com/en/docs/x-api/users/lookup/api-reference/get-users-me
 use crate::error::Result;
-use crate::{AuthConfig, AuthUrlProvider};
+use crate::{AuthAction, AuthConfig, AuthUrlProvider};
+use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_with::{
     formats::{CommaSeparator, SpaceSeparator},
@@ -32,8 +33,82 @@ impl AuthUrlProvider for AuthorizationServer {
         ))
     }
 
-    fn user_info_url(request: Self::UserInfoRequest) -> Result<String> {
+    fn user_info_url(_request: Self::UserInfoRequest) -> Result<String> {
         Ok(format!("https://api.x.com/2/users/me"))
+    }
+}
+
+#[async_trait]
+impl AuthAction for AuthorizationServer {
+    type AuthCallback = AuthCallback;
+    type AuthToken = TokenResponse;
+    type AuthUser = UserInfoResponse;
+
+    async fn authorize<S: Into<String> + Send>(&self, state: S) -> Result<String> {
+        let AuthConfig {
+            client_id,
+            redirect_uri,
+            scope,
+            ..
+        } = &self.config;
+        Self::authorize_url(AuthRequest {
+            client_id: client_id.to_string(),
+            redirect_uri: redirect_uri.to_string(),
+            state: state.into(),
+            scope: scope
+                .clone()
+                .or_else(|| Some(vec!["tweet.read".into(), "users.read".into()]))
+                .expect("scope is empty"),
+            ..Default::default()
+        })
+    }
+
+    async fn get_access_token(&self, callback: Self::AuthCallback) -> Result<Self::AuthToken> {
+        let AuthConfig {
+            client_id,
+            redirect_uri,
+            ..
+        } = &self.config;
+        let access_token_url = Self::access_token_url(GetTokenRequest {
+            client_id: client_id.to_string(),
+            code: callback.code,
+            redirect_uri: redirect_uri.to_string(),
+            code_verifier: "aaa".to_string(),
+        })?;
+        Ok(reqwest::get(access_token_url).await?.json().await?)
+    }
+
+    async fn get_user_info(&self, token: Self::AuthToken) -> Result<Self::AuthUser> {
+        let user_info_url = Self::user_info_url(GetUserInfoRequest {
+            user_fields: [
+                "created_at",
+                "description",
+                "entities",
+                "id",
+                "location",
+                "most_recent_tweet_id",
+                "name",
+                "pinned_tweet_id",
+                "profile_image_url",
+                "protected",
+                "public_metrics",
+                "url",
+                "username",
+                "verified",
+                "verified_type",
+                "withheld",
+            ]
+            .map(|s| s.to_string())
+            .to_vec(),
+            ..Default::default()
+        })?;
+        Ok(reqwest::Client::default()
+            .get(user_info_url)
+            .bearer_auth(token.access_token)
+            .send()
+            .await?
+            .json()
+            .await?)
     }
 }
 
@@ -45,6 +120,7 @@ pub struct AuthRequest {
     #[serde_as(as = "StringWithSeparator::<SpaceSeparator, String>")]
     scope: Vec<String>,
     state: String,
+    /// https://www.oauth.com/oauth2-servers/pkce/authorization-request/
     code_challenge: Option<String>,
     code_challenge_method: Option<String>,
 }
@@ -71,7 +147,7 @@ pub struct TokenResponse {
 }
 
 #[serde_as]
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct GetUserInfoRequest {
     expansions: Option<String>,
     #[serde(rename = "tweet.fields")]

@@ -42,7 +42,7 @@ impl AuthUrlProvider for AuthorizationServer {
 impl AuthAction for AuthorizationServer {
     type AuthCallback = AuthCallback;
     type AuthToken = TokenResponse;
-    type AuthUser = GetUserInfoRequest;
+    type AuthUser = UserInfoResponse;
 
     async fn authorize<S: Into<String> + Send>(&self, state: S) -> Result<String> {
         let AuthConfig {
