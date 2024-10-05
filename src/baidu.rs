@@ -53,6 +53,7 @@ impl AuthAction for AuthorizationServer {
             client_id: client_id.to_string(),
             redirect_uri: redirect_uri.to_string(),
             state: Some(state.into()),
+            scope: scope.clone().unwrap_or_default(),
             ..Default::default()
         })
     }
