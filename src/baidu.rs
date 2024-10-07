@@ -1,6 +1,6 @@
 //! https://openauth.baidu.com/doc/doc.html
 use crate::error::Result;
-use crate::{AuthAction, AuthConfig, AuthUrlProvider};
+use crate::{auth_server_builder, AuthAction, AuthConfig, AuthUrlProvider};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::SpaceSeparator, serde_as, StringWithSeparator};
@@ -8,6 +8,8 @@ use serde_with::{formats::SpaceSeparator, serde_as, StringWithSeparator};
 pub struct AuthorizationServer {
     config: AuthConfig,
 }
+
+auth_server_builder!();
 
 impl AuthUrlProvider for AuthorizationServer {
     type AuthRequest = AuthRequest;

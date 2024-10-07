@@ -1,11 +1,13 @@
 //! https://wikinew.open.qq.com/index.html#/iwiki/901251864
-use crate::{error::Result, utils, AuthAction, AuthConfig, AuthUrlProvider};
+use crate::{auth_server_builder, error::Result, utils, AuthAction, AuthConfig, AuthUrlProvider};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 pub struct AuthorizationServer {
     config: AuthConfig,
 }
+
+auth_server_builder!();
 
 impl AuthUrlProvider for AuthorizationServer {
     type AuthRequest = AuthRequest;

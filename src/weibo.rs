@@ -1,4 +1,5 @@
 //! https://open.weibo.com/wiki/授权机制说明
+use crate::auth_server_builder;
 use crate::{error::Result, AuthAction, AuthConfig, AuthUrlProvider};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -8,6 +9,8 @@ use serde_with::{formats::CommaSeparator, serde_as, StringWithSeparator};
 pub struct AuthorizationServer {
     config: AuthConfig,
 }
+
+auth_server_builder!();
 
 impl AuthUrlProvider for AuthorizationServer {
     type AuthRequest = AuthRequest;

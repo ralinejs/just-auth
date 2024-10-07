@@ -1,5 +1,5 @@
 //! https://developers.facebook.com/docs/facebook-login/guides/advanced/manual-flow
-use crate::{error::Result, AuthAction, AuthConfig, AuthUrlProvider};
+use crate::{auth_server_builder, error::Result, AuthAction, AuthConfig, AuthUrlProvider};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_with::{formats::CommaSeparator, serde_as, StringWithSeparator};
@@ -7,6 +7,8 @@ use serde_with::{formats::CommaSeparator, serde_as, StringWithSeparator};
 pub struct AuthorizationServer {
     config: AuthConfig,
 }
+
+auth_server_builder!();
 
 impl AuthUrlProvider for AuthorizationServer {
     type AuthRequest = AuthRequest;
