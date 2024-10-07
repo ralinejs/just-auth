@@ -6,6 +6,9 @@ pub enum AuthError {
     UrlEncodedSerializeErr(#[from] serde_urlencoded::ser::Error),
 
     #[error(transparent)]
+    UrlEncodedDeserializeErr(#[from] serde_urlencoded::de::Error),
+
+    #[error(transparent)]
     JsonParseErr(#[from] serde_json::Error),
 
     #[error(transparent)]

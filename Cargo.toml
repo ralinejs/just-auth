@@ -3,7 +3,7 @@ description = "just for oauth2 login"
 edition = "2021"
 license = "MIT"
 name = "just-auth"
-version = "0.1.2"
+version = "0.1.3"
 
 [dependencies]
 async-trait = "0.1"

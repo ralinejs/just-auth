@@ -1,6 +1,8 @@
 //! https://openauth.baidu.com/doc/doc.html
 use crate::error::Result;
-use crate::{auth_server_builder, AuthAction, AuthConfig, AuthUrlProvider, AuthUser};
+use crate::{
+    auth_server_builder, AuthAction, AuthConfig, AuthUrlProvider, AuthUser, GenericAuthAction,
+};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -46,35 +48,6 @@ impl AuthAction for AuthorizationServer {
     type AuthToken = TokenResponse;
     type AuthUser = UserInfoResponse;
 
-    async fn authorize<S: Into<String> + Send>(&self, state: S) -> Result<String> {
-        let AuthConfig {
-            client_id,
-            redirect_uri,
-            scope,
-            ..
-        } = &self.config;
-        Self::authorize_url(AuthRequest {
-            client_id: client_id.to_string(),
-            redirect_uri: redirect_uri.to_string(),
-            state: Some(state.into()),
-            scope: scope.clone().unwrap_or_default(),
-            ..Default::default()
-        })
-    }
-
-    async fn login(&self, callback: Self::AuthCallback) -> Result<AuthUser> {
-        let token = self.get_access_token(callback).await?;
-        let user = self.get_user_info(token.clone()).await?;
-        Ok(AuthUser {
-            user_id: user.openid,
-            name: user.username.unwrap_or_default(),
-            access_token: token.access_token,
-            refresh_token: token.refresh_token,
-            expires_in: token.expires_in,
-            extra: user.extra,
-        })
-    }
-
     async fn get_access_token(&self, callback: Self::AuthCallback) -> Result<Self::AuthToken> {
         let AuthConfig {
             client_id,
@@ -97,6 +70,39 @@ impl AuthAction for AuthorizationServer {
             get_unionid: Some(1),
         })?;
         Ok(reqwest::get(user_info_url).await?.json().await?)
+    }
+}
+
+#[async_trait]
+impl GenericAuthAction for AuthorizationServer {
+    async fn authorize<S: Into<String> + Send>(&self, state: S) -> Result<String> {
+        let AuthConfig {
+            client_id,
+            redirect_uri,
+            scope,
+            ..
+        } = &self.config;
+        Self::authorize_url(AuthRequest {
+            client_id: client_id.to_string(),
+            redirect_uri: redirect_uri.to_string(),
+            state: Some(state.into()),
+            scope: scope.clone().unwrap_or_default(),
+            ..Default::default()
+        })
+    }
+
+    async fn login<S: Into<String> + Send>(&self, callback: S) -> Result<AuthUser> {
+        let callback: AuthCallback = serde_urlencoded::from_str(&callback.into())?;
+        let token = self.get_access_token(callback).await?;
+        let user = self.get_user_info(token.clone()).await?;
+        Ok(AuthUser {
+            user_id: user.openid,
+            name: user.username.unwrap_or_default(),
+            access_token: token.access_token,
+            refresh_token: token.refresh_token,
+            expires_in: token.expires_in,
+            extra: user.extra,
+        })
     }
 }
 

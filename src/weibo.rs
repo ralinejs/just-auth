@@ -1,5 +1,5 @@
 //! https://open.weibo.com/wiki/授权机制说明
-use crate::{auth_server_builder, AuthUser};
+use crate::{auth_server_builder, AuthUser, GenericAuthAction};
 use crate::{error::Result, AuthAction, AuthConfig, AuthUrlProvider};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -49,38 +49,6 @@ impl AuthAction for AuthorizationServer {
     type AuthToken = TokenResponse;
     type AuthUser = UserInfoResponse;
 
-    async fn authorize<S: Into<String> + Send>(&self, state: S) -> Result<String> {
-        let AuthConfig {
-            client_id,
-            redirect_uri,
-            scope,
-            ..
-        } = &self.config;
-        Self::authorize_url(AuthRequest {
-            client_id: client_id.to_string(),
-            redirect_uri: redirect_uri.to_string(),
-            state: Some(state.into()),
-            scope: scope
-                .clone()
-                .or_else(|| Some(vec!["email".into()]))
-                .expect("scope is empty"),
-            ..Default::default()
-        })
-    }
-
-    async fn login(&self, callback: Self::AuthCallback) -> Result<AuthUser> {
-        let token = self.get_access_token(callback).await?;
-        let user = self.get_user_info(token.clone()).await?;
-        Ok(AuthUser {
-            user_id: user.uid,
-            name: user.nickname,
-            access_token: token.access_token,
-            refresh_token: "".to_string(),
-            expires_in: token.expires_in,
-            extra: user.extra,
-        })
-    }
-
     async fn get_access_token(&self, callback: Self::AuthCallback) -> Result<Self::AuthToken> {
         let AuthConfig {
             client_id,
@@ -103,6 +71,42 @@ impl AuthAction for AuthorizationServer {
             uid: token.uid,
         })?;
         Ok(reqwest::get(user_info_url).await?.json().await?)
+    }
+}
+
+#[async_trait]
+impl GenericAuthAction for AuthorizationServer {
+    async fn authorize<S: Into<String> + Send>(&self, state: S) -> Result<String> {
+        let AuthConfig {
+            client_id,
+            redirect_uri,
+            scope,
+            ..
+        } = &self.config;
+        Self::authorize_url(AuthRequest {
+            client_id: client_id.to_string(),
+            redirect_uri: redirect_uri.to_string(),
+            state: Some(state.into()),
+            scope: scope
+                .clone()
+                .or_else(|| Some(vec!["email".into()]))
+                .expect("scope is empty"),
+            ..Default::default()
+        })
+    }
+
+    async fn login<S: Into<String> + Send>(&self, callback: S) -> Result<AuthUser> {
+        let callback: AuthCallback = serde_urlencoded::from_str(&callback.into())?;
+        let token = self.get_access_token(callback).await?;
+        let user = self.get_user_info(token.clone()).await?;
+        Ok(AuthUser {
+            user_id: user.uid,
+            name: user.nickname,
+            access_token: token.access_token,
+            refresh_token: "".to_string(),
+            expires_in: token.expires_in,
+            extra: user.extra,
+        })
     }
 }
 

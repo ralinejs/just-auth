@@ -97,13 +97,16 @@ pub trait AuthAction {
     type AuthToken: Send;
     type AuthUser;
 
-    async fn authorize<S: Into<String> + Send>(&self, state: S) -> Result<String>;
-
-    async fn login(&self, callback: Self::AuthCallback) -> Result<AuthUser>;
-
     async fn get_access_token(&self, callback: Self::AuthCallback) -> Result<Self::AuthToken>;
 
     async fn get_user_info(&self, token: Self::AuthToken) -> Result<Self::AuthUser>;
+}
+
+#[async_trait]
+pub trait GenericAuthAction {
+    async fn authorize<S: Into<String> + Send>(&self, state: S) -> Result<String>;
+
+    async fn login<S: Into<String> + Send>(&self, callback_raw_query: S) -> Result<AuthUser>;
 }
 
 pub struct AuthUser {
