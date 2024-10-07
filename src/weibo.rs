@@ -1,10 +1,12 @@
 //! https://open.weibo.com/wiki/授权机制说明
-use crate::auth_server_builder;
+use crate::{auth_server_builder, AuthUser};
 use crate::{error::Result, AuthAction, AuthConfig, AuthUrlProvider};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use serde_with::DisplayFromStr;
 use serde_with::{formats::CommaSeparator, serde_as, StringWithSeparator};
+use std::collections::HashMap;
 
 pub struct AuthorizationServer {
     config: AuthConfig,
@@ -66,6 +68,19 @@ impl AuthAction for AuthorizationServer {
         })
     }
 
+    async fn login(&self, callback: Self::AuthCallback) -> Result<AuthUser> {
+        let token = self.get_access_token(callback).await?;
+        let user = self.get_user_info(token.clone()).await?;
+        Ok(AuthUser {
+            user_id: user.uid,
+            name: user.nickname,
+            access_token: token.access_token,
+            refresh_token: "".to_string(),
+            expires_in: token.expires_in,
+            extra: user.extra,
+        })
+    }
+
     async fn get_access_token(&self, callback: Self::AuthCallback) -> Result<Self::AuthToken> {
         let AuthConfig {
             client_id,
@@ -118,7 +133,7 @@ pub struct GetTokenRequest {
     redirect_uri: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenResponse {
     access_token: String,
     remind_in: i64,
@@ -134,19 +149,11 @@ pub struct GetUserInfoRequest {
     uid: i64,
 }
 
+/// https://open.weibo.com/wiki/获取用户基本信息
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UserInfoResponse {
-    pub subscribe: i64,
     pub uid: String,
     pub nickname: String,
-    pub sex: i64,
-    pub language: String,
-    pub city: String,
-    pub province: String,
-    pub country: String,
-    pub headimgurl: String,
-    pub headimgurl_large: String,
-    pub headimgurl_hd: String,
-    pub follow: String,
-    pub subscribe_time: i64,
+    #[serde(flatten)]
+    pub extra: HashMap<String, Value>,
 }

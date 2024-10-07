@@ -1,8 +1,12 @@
 //! https://developers.facebook.com/docs/facebook-login/guides/advanced/manual-flow
-use crate::{auth_server_builder, error::Result, AuthAction, AuthConfig, AuthUrlProvider};
+use crate::{
+    auth_server_builder, error::Result, AuthAction, AuthConfig, AuthUrlProvider, AuthUser,
+};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use serde_with::{formats::CommaSeparator, serde_as, StringWithSeparator};
+use std::collections::HashMap;
 
 pub struct AuthorizationServer {
     config: AuthConfig,
@@ -31,6 +35,7 @@ impl AuthUrlProvider for AuthorizationServer {
         ))
     }
 
+    /// https://developers.facebook.com/docs/graph-api/overview#me
     fn user_info_url(request: Self::UserInfoRequest) -> Result<String> {
         let query = serde_urlencoded::to_string(request)?;
         Ok(format!("https://graph.facebook.com/me?{query}"))
@@ -56,6 +61,19 @@ impl AuthAction for AuthorizationServer {
             state: Some(state.into()),
             scope: scope.clone().unwrap_or_default(),
             ..Default::default()
+        })
+    }
+
+    async fn login(&self, callback: Self::AuthCallback) -> Result<AuthUser> {
+        let token = self.get_access_token(callback).await?;
+        let user = self.get_user_info(token.clone()).await?;
+        Ok(AuthUser {
+            user_id: user.id,
+            name: user.name,
+            access_token: token.access_token,
+            refresh_token: token.token_type,
+            expires_in: token.expires_in,
+            extra: user.extra,
         })
     }
 
@@ -129,13 +147,8 @@ pub struct GetUserInfoRequest {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UserInfoResponse {
-    pub openid: String,
-    pub nickname: String,
-    pub sex: i64,
-    pub province: String,
-    pub city: String,
-    pub country: String,
-    pub headimgurl: String,
-    pub privilege: Vec<String>,
-    pub unionid: String,
+    pub id: String,
+    pub name: String,
+    #[serde(flatten)]
+    pub extra: HashMap<String, Value>,
 }

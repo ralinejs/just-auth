@@ -1,10 +1,13 @@
 //! https://developer.x.com/en/docs/authentication/oauth-2-0/authorization-code
 //! https://developer.x.com/en/docs/authentication/oauth-2-0/user-access-token
 //! https://developer.x.com/en/docs/x-api/users/lookup/api-reference/get-users-me
+use std::collections::HashMap;
+
 use crate::error::Result;
-use crate::{auth_server_builder, AuthAction, AuthConfig, AuthUrlProvider};
+use crate::{auth_server_builder, AuthAction, AuthConfig, AuthUrlProvider, AuthUser};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use serde_with::{
     formats::{CommaSeparator, SpaceSeparator},
     serde_as, StringWithSeparator,
@@ -62,6 +65,19 @@ impl AuthAction for AuthorizationServer {
                 .or_else(|| Some(vec!["tweet.read".into(), "users.read".into()]))
                 .expect("scope is empty"),
             ..Default::default()
+        })
+    }
+
+    async fn login(&self, callback: Self::AuthCallback) -> Result<AuthUser> {
+        let token = self.get_access_token(callback).await?;
+        let user = self.get_user_info(token.clone()).await?;
+        Ok(AuthUser {
+            user_id: user.id,
+            name: user.name,
+            access_token: token.access_token,
+            refresh_token: token.token_type,
+            expires_in: i64::MAX,
+            extra: user.extra,
         })
     }
 
@@ -160,19 +176,11 @@ pub struct GetUserInfoRequest {
     user_fields: Vec<String>,
 }
 
+/// https://developer.x.com/en/docs/x-api/users/lookup/api-reference/get-users-me
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UserInfoResponse {
-    pub openid: String,
-    pub unionid: String,
-    pub userid: Option<u32>,
-    pub securemobile: Option<u32>,
-    pub username: Option<String>,
-    pub portrait: Option<String>,
-    pub userdetail: Option<String>,
-    pub birthday: Option<String>,
-    pub marriage: Option<String>,
-    pub sex: Option<String>,
-    pub blood: Option<String>,
-    pub is_bind_mobile: Option<String>,
-    pub is_realname: Option<String>,
+    pub id: String,
+    pub name: String,
+    #[serde(flatten)]
+    pub extra: HashMap<String, Value>,
 }

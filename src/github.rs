@@ -1,10 +1,12 @@
 //! https://docs.github.com/zh/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps
 use crate::error::Result;
-use crate::{auth_server_builder, AuthAction, AuthConfig, AuthUrlProvider};
+use crate::{auth_server_builder, AuthAction, AuthConfig, AuthUrlProvider, AuthUser};
 use async_trait::async_trait;
 use reqwest::header::ACCEPT;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use serde_with::{formats::SpaceSeparator, serde_as, StringWithSeparator};
+use std::collections::HashMap;
 
 pub struct AuthorizationServer {
     config: AuthConfig,
@@ -56,6 +58,19 @@ impl AuthAction for AuthorizationServer {
                 .or_else(|| Some(vec!["read:user".into(), "user:email".into()]))
                 .expect("scope is empty"),
             ..Default::default()
+        })
+    }
+
+    async fn login(&self, callback: Self::AuthCallback) -> Result<AuthUser> {
+        let token = self.get_access_token(callback).await?;
+        let user = self.get_user_info(token.clone()).await?;
+        Ok(AuthUser {
+            user_id: user.id.to_string(),
+            name: user.name,
+            access_token: token.access_token,
+            refresh_token: token.token_type,
+            expires_in: i64::MAX,
+            extra: user.extra,
         })
     }
 
@@ -130,45 +145,11 @@ pub struct TokenResponse {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GetUserInfoRequest {}
 
+/// https://docs.github.com/en/rest/users/users
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UserInfoResponse {
-    pub login: String,
     pub id: i64,
-    pub node_id: String,
-    pub avatar_url: String,
-    pub gravatar_id: String,
-    pub url: String,
-    pub html_url: String,
-    pub followers_url: String,
-    pub following_url: String,
-    pub gists_url: String,
-    pub starred_url: String,
-    pub subscriptions_url: String,
-    pub organizations_url: String,
-    pub repos_url: String,
-    pub events_url: String,
-    pub received_events_url: String,
-    #[serde(rename = "type")]
-    pub type_field: String,
-    pub site_admin: bool,
     pub name: String,
-    pub company: String,
-    pub blog: String,
-    pub location: String,
-    pub email: String,
-    pub hireable: bool,
-    pub bio: String,
-    pub twitter_username: String,
-    pub public_repos: i64,
-    pub public_gists: i64,
-    pub followers: i64,
-    pub following: i64,
-    pub created_at: String,
-    pub updated_at: String,
-    pub private_gists: i64,
-    pub total_private_repos: i64,
-    pub owned_private_repos: i64,
-    pub disk_usage: i64,
-    pub collaborators: i64,
-    pub two_factor_authentication: bool,
+    #[serde(flatten)]
+    pub extra: HashMap<String, Value>,
 }

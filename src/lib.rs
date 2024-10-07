@@ -9,8 +9,11 @@ pub mod weibo;
 
 mod utils;
 
+use std::collections::HashMap;
+
 use crate::error::Result;
 use async_trait::async_trait;
+use serde_json::Value;
 
 pub struct AuthConfig {
     client_id: String,
@@ -96,12 +99,18 @@ pub trait AuthAction {
 
     async fn authorize<S: Into<String> + Send>(&self, state: S) -> Result<String>;
 
-    async fn login(&self, callback: Self::AuthCallback) -> Result<Self::AuthUser> {
-        let token = self.get_access_token(callback).await?;
-        self.get_user_info(token).await
-    }
+    async fn login(&self, callback: Self::AuthCallback) -> Result<AuthUser>;
 
     async fn get_access_token(&self, callback: Self::AuthCallback) -> Result<Self::AuthToken>;
 
     async fn get_user_info(&self, token: Self::AuthToken) -> Result<Self::AuthUser>;
+}
+
+pub struct AuthUser {
+    pub user_id: String,
+    pub name: String,
+    pub access_token: String,
+    pub refresh_token: String,
+    pub expires_in: i64,
+    pub extra: HashMap<String, Value>,
 }

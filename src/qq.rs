@@ -1,7 +1,11 @@
 //! https://wikinew.open.qq.com/index.html#/iwiki/901251864
-use crate::{auth_server_builder, error::Result, utils, AuthAction, AuthConfig, AuthUrlProvider};
+use crate::{
+    auth_server_builder, error::Result, utils, AuthAction, AuthConfig, AuthUrlProvider, AuthUser,
+};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::collections::HashMap;
 
 pub struct AuthorizationServer {
     config: AuthConfig,
@@ -56,6 +60,27 @@ impl AuthAction for AuthorizationServer {
         })
     }
 
+    async fn login(&self, callback: Self::AuthCallback) -> Result<AuthUser> {
+        let AuthConfig { client_id, .. } = &self.config;
+        let token = self.get_access_token(callback).await?;
+        let access_token = token.access_token;
+        let open_id = self.get_open_id(&access_token).await?;
+        let user_info_url = Self::user_info_url(GetUserInfoRequest {
+            openid: open_id.openid.clone(),
+            access_token: access_token.clone(),
+            oauth_consumer_key: client_id.to_string(),
+        })?;
+        let user: Self::AuthUser = reqwest::get(user_info_url).await?.json().await?;
+        Ok(AuthUser {
+            user_id: open_id.openid,
+            name: user.nickname,
+            access_token: access_token,
+            refresh_token: token.refresh_token,
+            expires_in: token.expires_in.into(),
+            extra: user.extra,
+        })
+    }
+
     async fn get_access_token(&self, callback: Self::AuthCallback) -> Result<Self::AuthToken> {
         let AuthConfig {
             client_id,
@@ -76,6 +101,18 @@ impl AuthAction for AuthorizationServer {
     async fn get_user_info(&self, token: Self::AuthToken) -> Result<Self::AuthUser> {
         let AuthConfig { client_id, .. } = &self.config;
         let access_token = token.access_token;
+        let value = self.get_open_id(&access_token).await?;
+        let user_info_url = Self::user_info_url(GetUserInfoRequest {
+            openid: value.openid,
+            access_token: access_token,
+            oauth_consumer_key: client_id.to_string(),
+        })?;
+        Ok(reqwest::get(user_info_url).await?.json().await?)
+    }
+}
+
+impl AuthorizationServer {
+    async fn get_open_id(&self, access_token: &str) -> Result<OpenIdResp> {
         let jsonp = reqwest::get(format!(
             "https://graph.qq.com/oauth2.0/me?access_token={access_token}"
         ))
@@ -84,13 +121,7 @@ impl AuthAction for AuthorizationServer {
         .await?;
         let json =
             utils::substr_between(&jsonp, "callback(", ");").expect("jsonp response is valid");
-        let value: OpenIdResp = serde_json::from_str(json)?;
-        let user_info_url = Self::user_info_url(GetUserInfoRequest {
-            openid: value.openid,
-            access_token: access_token,
-            oauth_consumer_key: client_id.to_string(),
-        })?;
-        Ok(reqwest::get(user_info_url).await?.json().await?)
+        Ok(serde_json::from_str(json)?)
     }
 }
 
@@ -162,20 +193,11 @@ pub struct GetUserInfoRequest {
     openid: String,
 }
 
+/// https://wiki.connect.qq.com/get_user_info
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UserInfoResponse {
-    pub ret: i64,
-    pub msg: String,
     pub nickname: String,
-    pub figureurl: String,
-    #[serde(rename = "figureurl_1")]
-    pub figureurl_1: String,
-    #[serde(rename = "figureurl_2")]
-    pub figureurl_2: String,
-    #[serde(rename = "figureurl_qq_1")]
-    pub figureurl_qq_1: String,
-    #[serde(rename = "figureurl_qq_2")]
-    pub figureurl_qq_2: String,
-    pub gender: String,
+    #[serde(flatten)]
+    pub extra: HashMap<String, Value>,
 }

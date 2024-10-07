@@ -1,9 +1,13 @@
 //! 微信开放平台
 //! https://developers.weixin.qq.com/doc/oplatform/Website_App/WeChat_Login/Wechat_Login.html
-use crate::{auth_server_builder, error::Result, AuthAction, AuthConfig, AuthUrlProvider};
+use crate::{
+    auth_server_builder, error::Result, AuthAction, AuthConfig, AuthUrlProvider, AuthUser,
+};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use serde_with::{formats::CommaSeparator, serde_as, StringWithSeparator};
+use std::collections::HashMap;
 
 pub struct AuthorizationServer {
     config: AuthConfig,
@@ -66,6 +70,19 @@ impl AuthAction for AuthorizationServer {
                 })
                 .expect("scope is empty"),
             ..Default::default()
+        })
+    }
+
+    async fn login(&self, callback: Self::AuthCallback) -> Result<AuthUser> {
+        let token = self.get_access_token(callback).await?;
+        let user = self.get_user_info(token.clone()).await?;
+        Ok(AuthUser {
+            user_id: user.unionid,
+            name: user.nickname,
+            access_token: token.access_token,
+            refresh_token: token.refresh_token,
+            expires_in: token.expires_in,
+            extra: user.extra,
         })
     }
 
@@ -148,15 +165,11 @@ pub struct GetUserInfoRequest {
     lang: Option<String>,
 }
 
+/// https://developers.weixin.qq.com/doc/oplatform/Website_App/WeChat_Login/Authorized_Interface_Calling_UnionID.html
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UserInfoResponse {
-    pub openid: String,
-    pub nickname: String,
-    pub sex: i64,
-    pub province: String,
-    pub city: String,
-    pub country: String,
-    pub headimgurl: String,
-    pub privilege: Vec<String>,
     pub unionid: String,
+    pub nickname: String,
+    #[serde(flatten)]
+    pub extra: HashMap<String, Value>,
 }

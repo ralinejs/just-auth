@@ -1,9 +1,11 @@
 //! https://openauth.baidu.com/doc/doc.html
 use crate::error::Result;
-use crate::{auth_server_builder, AuthAction, AuthConfig, AuthUrlProvider};
+use crate::{auth_server_builder, AuthAction, AuthConfig, AuthUrlProvider, AuthUser};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use serde_with::{formats::SpaceSeparator, serde_as, StringWithSeparator};
+use std::collections::HashMap;
 
 pub struct AuthorizationServer {
     config: AuthConfig,
@@ -57,6 +59,19 @@ impl AuthAction for AuthorizationServer {
             state: Some(state.into()),
             scope: scope.clone().unwrap_or_default(),
             ..Default::default()
+        })
+    }
+
+    async fn login(&self, callback: Self::AuthCallback) -> Result<AuthUser> {
+        let token = self.get_access_token(callback).await?;
+        let user = self.get_user_info(token.clone()).await?;
+        Ok(AuthUser {
+            user_id: user.openid,
+            name: user.username.unwrap_or_default(),
+            access_token: token.access_token,
+            refresh_token: token.refresh_token,
+            expires_in: token.expires_in,
+            extra: user.extra,
         })
     }
 
@@ -166,16 +181,7 @@ pub struct GetUserInfoRequest {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UserInfoResponse {
     pub openid: String,
-    pub unionid: String,
-    pub userid: Option<u32>,
-    pub securemobile: Option<u32>,
     pub username: Option<String>,
-    pub portrait: Option<String>,
-    pub userdetail: Option<String>,
-    pub birthday: Option<String>,
-    pub marriage: Option<String>,
-    pub sex: Option<String>,
-    pub blood: Option<String>,
-    pub is_bind_mobile: Option<String>,
-    pub is_realname: Option<String>,
+    #[serde(flatten)]
+    pub extra: HashMap<String, Value>,
 }
