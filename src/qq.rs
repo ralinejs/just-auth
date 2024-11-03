@@ -6,6 +6,7 @@ use crate::{
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use serde_with::{formats::CommaSeparator, serde_as, StringWithSeparator};
 use std::collections::HashMap;
 
 pub struct AuthorizationServer {
@@ -130,11 +131,13 @@ impl AuthorizationServer {
     }
 }
 
+#[serde_as]
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct AuthRequest {
     client_id: String,
     redirect_uri: String,
     state: String,
+    #[serde_as(as = "Option<StringWithSeparator::<CommaSeparator, String>>")]
     scope: Option<Vec<String>>,
     display: Option<QQDisplayStyle>,
 }
